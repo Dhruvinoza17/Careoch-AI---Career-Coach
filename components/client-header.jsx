@@ -1,14 +1,14 @@
+'use client'
+
 import React from 'react'
-import { SignedOut, SignedIn, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
+import { SignedOut, SignedIn, SignInButton, UserButton } from '@clerk/nextjs'
 import Link from 'next/link'
 import Image from 'next/image'
 import { LayoutDashboard, StarsIcon, ChevronDown, FileText, PenBox, GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
-const Header = () => {
-
-
+const ClientHeader = () => {
   return (
     <header className='fixed top-0 w-full border-b bg-background/80 backdrop-blur-md z-50 
         supports-[backdrop-filter]:bg-background/60'>
@@ -88,4 +88,4 @@ const Header = () => {
   )
 }
 
-export default Header
+export default ClientHeader

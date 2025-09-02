@@ -1,7 +1,7 @@
 import {Inter} from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import Header from "@/components/header";
+import ClientHeader from "@/components/client-header";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Github, Linkedin } from "lucide-react";
@@ -37,7 +37,7 @@ export default function RootLayout({ children }) {
             disableTransitionOnChange
           >
             {/* header */}
-            <Header />
+            <ClientHeader />
             <main className="min-h-screen">
               {children}
             </main>

@@ -29,9 +29,22 @@ export async function updateUser(data) {
 
                 // If industry doesn't exist create it with default values - will replace it with ai later
                 if (!industryInsight) {
-                    const insights = await generateAIInsights(data.industry);
+                    // Validate industry data
+                    if (!data.industry || data.industry.trim() === '') {
+                        throw new Error('Industry is required and cannot be empty');
+                    }
 
-                    industryInsight = await db.industryInsight.create({
+                    let insights;
+                    try {
+                        insights = await generateAIInsights(data.industry);
+                    } catch (error) {
+                        console.warn('Failed to generate AI insights, using fallback:', error.message);
+                        // Import the fallback function from dashboard actions
+                        const { getFallbackInsights } = await import('./dashboard.js');
+                        insights = await getFallbackInsights(data.industry);
+                    }
+
+                    industryInsight = await tx.industryInsight.create({
                         data:{
                             industry: data.industry,
                             ...insights,
@@ -69,18 +82,18 @@ export async function updateUser(data) {
 }
 
 export async function getUserOnboardingStatus () {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
-
-    const user = await db.user.findUnique({
-        where: {
-            clerkUserId: userId,
-        },
-    });
-
-    if (!user) throw new Error("User not found");
-
     try {
+        const { userId } = await auth();
+        if (!userId) {
+            return { isOnboarded: false };
+        }
+
+        // Check if DATABASE_URL is configured
+        if (!process.env.DATABASE_URL) {
+            console.warn('DATABASE_URL is not configured. Returning default onboarding status.');
+            return { isOnboarded: false };
+        }
+
         const user = await db.user.findUnique({
             where: {
                 clerkUserId: userId,
@@ -95,6 +108,7 @@ export async function getUserOnboardingStatus () {
         };
     } catch (error) {
         console.error("Error checking onboarding status:", error.message);
-        throw new Error("Failed to check onboarding status");
+        // Return default status instead of throwing error
+        return { isOnboarded: false };
     }
 }

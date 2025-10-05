@@ -50,8 +50,8 @@ const DashboardView = ({ insights }) => {
     // Format dates using date-fns
     const lastUpdatedDate = format(new Date(insights.lastUpdated), "dd/MM/yyyy");
     const nextUpdateDistance = formatDistanceToNow(
-        new Date(insights.nextUpdate),
-        { addSuffix: true }
+      new Date(insights.nextUpdate),
+      { addSuffix: true }
     );
 
   return (

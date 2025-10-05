@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "../lib/prisma.js";
 import { generateAIInsights } from "./dashboard.js";
 
@@ -8,13 +8,35 @@ export async function updateUser(data) {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
-    const user = await db.user.findUnique({
+    let user = await db.user.findUnique({
         where: {
             clerkUserId: userId,
         },
     });
 
-    if (!user) throw new Error("User not found");
+    // If user does not exist yet, create a minimal record from Clerk data
+    if (!user) {
+        let clerkUser = null;
+        try {
+            if (clerkClient?.users?.getUser) {
+                clerkUser = await clerkClient.users.getUser(userId);
+            }
+        } catch (e) {
+            console.warn("Failed to fetch Clerk user; falling back to placeholder data:", e?.message);
+        }
+
+        const fallbackEmailDomain = process.env.DEFAULT_USER_EMAIL_DOMAIN || "placeholder.local";
+        const emailAddress = clerkUser?.primaryEmailAddress?.emailAddress || `${userId}@${fallbackEmailDomain}`;
+
+        user = await db.user.create({
+            data: {
+                clerkUserId: userId,
+                email: emailAddress,
+                name: clerkUser?.fullName || null,
+                imageUrl: clerkUser?.imageUrl || null,
+            },
+        });
+    }
 
     try {
 

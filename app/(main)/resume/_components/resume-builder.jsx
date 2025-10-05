@@ -1,7 +1,7 @@
 "use client";
 
 import html2pdf from 'html2pdf.js/dist/html2pdf.min.js';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -11,6 +11,7 @@ import {
   Loader2,
   Monitor,
   Save,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import MDEditor from "@uiw/react-md-editor";
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { saveResume } from "@/actions/resume";
+import { saveResume, improveWithAI } from "@/actions/resume";
 import { EntryForm } from "./entry-form";
 import useFetch from "@/hooks/use-fetch";
 import { useUser } from "@clerk/nextjs";
@@ -38,6 +39,7 @@ export default function ResumeBuilder({ initialContent }) {
     handleSubmit,
     watch,
     formState: { errors },
+    setValue,
   } = useForm({
     resolver: zodResolver(resumeSchema),
     defaultValues: {
@@ -60,6 +62,21 @@ export default function ResumeBuilder({ initialContent }) {
   // Watch form fields for preview updates
   const formValues = watch();
 
+  // AI improvement hooks
+  const {
+    loading: isImprovingSummary,
+    fn: improveSummaryFn,
+    data: improvedSummary,
+    error: improveSummaryError,
+  } = useFetch(improveWithAI);
+
+  const {
+    loading: isImprovingSkills,
+    fn: improveSkillsFn,
+    data: improvedSkills,
+    error: improveSkillsError,
+  } = useFetch(improveWithAI);
+
   useEffect(() => {
     if (initialContent) setActiveTab("preview");
   }, [initialContent]);
@@ -81,6 +98,46 @@ export default function ResumeBuilder({ initialContent }) {
       toast.error(saveError.message || "Failed to save resume");
     }
   }, [saveResult, saveError, isSaving]);
+
+  // Apply AI improvements
+  useEffect(() => {
+    if (improvedSummary) {
+      setValue("summary", improvedSummary);
+      toast.success("Summary improved successfully!");
+    }
+    if (improveSummaryError) {
+      toast.error(improveSummaryError.message || "Failed to improve summary");
+    }
+  }, [improvedSummary, improveSummaryError, setValue]);
+
+  useEffect(() => {
+    if (improvedSkills) {
+      setValue("skills", improvedSkills);
+      toast.success("Skills improved successfully!");
+    }
+    if (improveSkillsError) {
+      toast.error(improveSkillsError.message || "Failed to improve skills");
+    }
+  }, [improvedSkills, improveSkillsError, setValue]);
+
+  // AI handlers
+  const handleImproveSummary = useCallback(async () => {
+    const summary = watch("summary");
+    if (!summary) {
+      toast.error("Please enter a summary first");
+      return;
+    }
+    await improveSummaryFn({ current: summary, type: "summary" });
+  }, [watch, improveSummaryFn]);
+
+  const handleImproveSkills = useCallback(async () => {
+    const skills = watch("skills");
+    if (!skills) {
+      toast.error("Please enter skills first");
+      return;
+    }
+    await improveSkillsFn({ current: skills, type: "skills" });
+  }, [watch, improveSkillsFn]);
 
   const getContactMarkdown = () => {
   const { contactInfo } = formValues;
@@ -295,6 +352,25 @@ export default function ResumeBuilder({ initialContent }) {
               {errors.summary && (
                 <p className="text-sm text-red-500">{errors.summary.message}</p>
               )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleImproveSummary}
+                disabled={isImprovingSummary || !watch("summary")}
+              >
+                {isImprovingSummary ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Improving...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Improve with AI
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Skills */}
@@ -315,6 +391,25 @@ export default function ResumeBuilder({ initialContent }) {
               {errors.skills && (
                 <p className="text-sm text-red-500">{errors.skills.message}</p>
               )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleImproveSkills}
+                disabled={isImprovingSkills || !watch("skills")}
+              >
+                {isImprovingSkills ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Improving...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Improve with AI
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Experience */}

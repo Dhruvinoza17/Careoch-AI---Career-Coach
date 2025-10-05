@@ -72,20 +72,52 @@ const validateAndCleanInsights = (insights, industry) => {
 };
 
 export const getFallbackInsights = async (industry) => {
+    // Simple deterministic hash to vary values per industry
+    const hash = Array.from(industry).reduce((acc, c) => (acc * 33 + c.charCodeAt(0)) % 101, 0);
+    const growthRate = 3 + (hash % 15); // 3..17
+    const demandLevels = ["LOW", "MEDIUM", "HIGH"];
+    const marketOutlooks = ["NEGATIVE", "NEUTRAL", "POSITIVE"];
+    const demandLevel = demandLevels[hash % demandLevels.length];
+    const marketOutlook = marketOutlooks[(hash >> 2) % marketOutlooks.length];
+
+    const baseSkills = [
+        `${industry} Fundamentals`,
+        `${industry} Tools`,
+        "Communication",
+        "Problem Solving",
+        "Data Analysis",
+        "Leadership",
+    ];
+    const topSkills = Array.from(new Set(baseSkills)).slice(0, 5);
+    const recommendedSkills = [
+        `${industry} Frameworks`,
+        `${industry} Best Practices`,
+        "Project Management",
+        "Collaboration",
+        "Testing/QA",
+    ];
+    const keyTrends = [
+        `${industry} Automation`,
+        `${industry} AI Adoption`,
+        `${industry} Cloud Migration`,
+        `${industry} Security`,
+        `${industry} Sustainability`,
+    ];
+
     return {
         salaryRange: [
-            { role: `${industry} Analyst`, min: 50000, max: 80000, median: 65000, location: "US" },
-            { role: `${industry} Specialist`, min: 60000, max: 90000, median: 75000, location: "US" },
-            { role: `${industry} Manager`, min: 70000, max: 120000, median: 95000, location: "US" },
-            { role: `${industry} Director`, min: 90000, max: 150000, median: 120000, location: "US" },
-            { role: `${industry} Consultant`, min: 80000, max: 130000, median: 105000, location: "US" }
+            { role: `${industry} Analyst`, min: 45000 + hash * 100, max: 75000 + hash * 120, median: 60000 + hash * 110, location: "US" },
+            { role: `${industry} Specialist`, min: 55000 + hash * 110, max: 90000 + hash * 130, median: 72000 + hash * 120, location: "US" },
+            { role: `${industry} Manager`, min: 70000 + hash * 120, max: 120000 + hash * 140, median: 95000 + hash * 130, location: "US" },
+            { role: `${industry} Director`, min: 90000 + hash * 130, max: 150000 + hash * 160, median: 120000 + hash * 140, location: "US" },
+            { role: `${industry} Consultant`, min: 80000 + hash * 115, max: 130000 + hash * 145, median: 105000 + hash * 135, location: "US" }
         ],
-        growthRate: 5,
-        demandLevel: "MEDIUM",
-        topSkills: ["Communication", "Problem Solving", "Technical Skills", "Leadership", "Analytics"],
-        marketOutlook: "NEUTRAL",
-        keyTrends: ["Digital Transformation", "Remote Work", "Sustainability", "Automation", "Innovation"],
-        recommendedSkills: ["Communication", "Technical Skills", "Project Management", "Data Analysis", "Leadership"]
+        growthRate,
+        demandLevel,
+        topSkills,
+        marketOutlook,
+        keyTrends,
+        recommendedSkills,
     };
 };
 
@@ -149,6 +181,24 @@ export async function getIndustryInsights() {
             });
 
             return industryInsight;
+        }
+
+        // Refresh insights if nextUpdate has passed
+        if (user.industryInsight.nextUpdate && user.industryInsight.nextUpdate <= new Date()) {
+            const insights = process.env.GEMINI_API_KEY
+                ? await generateAIInsights(user.industry)
+                : await getFallbackInsights(user.industry);
+
+            const updated = await db.industryInsight.update({
+                where: { industry: user.industry },
+                data: {
+                    ...insights,
+                    lastUpdated: new Date(),
+                    nextUpdate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                },
+            });
+
+            return updated;
         }
 
         return user.industryInsight;
